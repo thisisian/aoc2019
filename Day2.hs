@@ -13,8 +13,8 @@ day2 = do
 
  where
   day2p2 code = head [(n, v) | n <- [0..99],
-                                v <- [0..99],
-                                runCode n v code == 19690720 ]
+                               v <- [0..99],
+                               runCode n v code == 19690720 ]
 
 
 
