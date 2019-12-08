@@ -5,6 +5,7 @@ module Day5 where
 import Control.Monad.Writer
 import Control.Monad.State
 import Data.Vector (Vector, (!), (//))
+import Data.Function
 import qualified Data.Vector as V
 import Common
 
@@ -26,14 +27,13 @@ data Op
 day5 :: IO ()
 day5 = do
   initialState <- newMachine . map read . split ',' <$> readFile "./inputs/5.txt"
-
   runTests
 
-  putStrLn $ "Pt 1: " ++ (show $ machineOutput initialState 1)
-  putStrLn $ "Pt 2: " ++ (show $ machineOutput initialState 5)
+  putStrLn $ "Pt 1: " ++ show (machineOutput initialState 1)
+  putStrLn $ "Pt 2: " ++ show (machineOutput initialState 5)
 
 newMachine :: [Int] -> Machine
-newMachine s = (Machine (V.fromList s) 0)
+newMachine s = Machine (V.fromList s) 0
 
 runTests = do
   assert (machineOutput eq0 0) [0]
@@ -44,8 +44,8 @@ runTests = do
   assert (machineOutput lt8 8) [0]
   assert (machineOutput eq8_2 8) [1]
   assert (machineOutput eq8_2 1) [0]
-
   return ()
+
  where
   eq8   = newMachine [3,9,8,9,10,9,4,9,99,-1,8]
   lt8   = newMachine [3,9,7,9,10,9,4,9,99,-1,8]
@@ -59,7 +59,7 @@ assert exp act = if exp == act
     putStrLn "Passed"
     return True
   else do
-    putStrLn $ "Failed. Got: " ++ (show exp) ++ " Expected: " ++ (show act)
+    putStrLn $ "Failed. Got: " ++ show exp ++ " Expected: " ++ show act
     return False
 
 parseOp :: Int -> Op
@@ -85,29 +85,29 @@ parseOp x =
 
   opCode x = x `mod` 100
 
-modeCode x n = (x `div` (pow 10 (n+1))) `mod` 10
+modeCode x n = (x `div` pow 10 (n+1)) `mod` 10
   where pow x n = product $ replicate n x
 
 paramCt :: Op -> Int
 paramCt (Add _ _)      = 3
 paramCt (Mul _ _)      = 3
-paramCt (Input)        = 1
-paramCt (Output)       = 1
+paramCt Input        = 1
+paramCt Output       = 1
 paramCt (JumpT _ _)    = 2
 paramCt (JumpF _ _)    = 2
 paramCt (LessThan _ _) = 3
 paramCt (EqTo _ _)     = 3
-paramCt (Terminate)    = 0
+paramCt Terminate    = 0
 
-data Machine = Machine {mState :: (Vector Int), mPc :: Int}
+data Machine = Machine { mCode :: Vector Int, mPc :: Int }
   deriving Show
 
 machineOutput :: Machine -> Int -> [Int]
-machineOutput machine input =
-  evalState (execWriterT (runMachine input)) machine
+machineOutput initial input =
+  execWriterT (runMachine input) & flip evalState initial
 
 machineState :: Machine -> ([Int], Machine)
-machineState machine = runState (execWriterT (runMachine 1)) machine
+machineState = runState (execWriterT (runMachine 1))
 
 runMachine
   :: (MonadState Machine m, MonadWriter [Int] m)
@@ -119,21 +119,17 @@ runMachine input = do
     (Add m1 m2) -> do
       arithBinOp (+) m1 m2
       stepPc op
-      runMachine input
     (Mul m1 m2) -> do
       arithBinOp (*) m1 m2
       stepPc op
-      runMachine input
     Input -> do
       p <- read Immediate 1
       write input p
       stepPc op
-      runMachine input
     Output -> do
       p <- read Position 1
       tell [p]
       stepPc op
-      runMachine input
     (JumpT m1 m2) -> do
       v <- read m1 1
       case v of
@@ -141,7 +137,6 @@ runMachine input = do
         _ -> do
           p <- read m2 2
           setPc p
-      runMachine input
     (JumpF m1 m2) -> do
       v <- read m1 1
       case v of
@@ -149,18 +144,21 @@ runMachine input = do
           p <- read m2 2
           setPc p
         _ -> stepPc op
-      runMachine input
     (LessThan m1 m2) -> do
       arithBinOp (\v1 v2 -> if v1 < v2 then 1 else 0) m1 m2
       stepPc op
-      runMachine input
     (EqTo m1 m2) -> do
       arithBinOp (\v1 v2 -> if v1 == v2 then 1 else 0) m1 m2
       stepPc op
-      runMachine input
     Terminate -> return ()
+  haltOrContinue op
 
  where
+
+  haltOrContinue op = case op of
+    Terminate -> return ()
+    _         -> runMachine input
+
   arithBinOp f m1 m2 = do
     v1 <- read m1 1
     v2 <- read m2 2
@@ -172,20 +170,18 @@ runMachine input = do
     return . parseOp $ state ! pc
 
   write n p = do
-    m@Machine{..} <- get
-    put $ m { mState = mState // [(p, n)] }
+    modify (\m@Machine{..} -> m { mCode = mCode // [(p, n)] })
 
   read m p = do
     (Machine state pc) <- get
     case m of
-      Position  -> do
+      Position  ->
         return $ state ! (state ! (pc + p))
       Immediate ->
         return $ state ! (pc+p)
 
   stepPc op = do
-    m@(Machine _ pc) <- get
-    put $ m { mPc = (pc + paramCt op + 1) }
+    modify (\m@Machine{..} -> m { mPc = mPc + paramCt op + 1})
 
   setPc p =
     modify (\m -> m { mPc = p })

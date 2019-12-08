@@ -5,6 +5,7 @@ dependencies:
 - vector
 - containers
 - mtl
+- parsec
 
 default-extensions:
 - RecordWildCards

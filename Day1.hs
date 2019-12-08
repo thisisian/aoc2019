@@ -1,27 +1,19 @@
 module Day1 where
 
-import Common
-
-import System.IO
-
-parse :: String -> [Int]
-parse = map read . lines
-
-day1 :: IO Int
+day1 :: IO ()
 day1 = do
   wts <- parse <$> readFile "./inputs/1.txt"
-  return $ sum $ map fuel wts
-
-day1p2 :: IO Int
-day1p2 = do
-  wts <- parse <$> readFile "./inputs/1.txt"
-  return $ sum $ map f wts
+  putStrLn $ "Part 1: " ++ show (sum . map fuel $ wts)
+  putStrLn $ "Part 2: " ++ show (sum . map allFuel $ wts)
 
  where
-  f :: Int -> Int
-  f x
-    | fl > 0  = fl + f fl
-    | otherwise = 0
-   where fl = fuel x
+  parse = map read . lines
 
+allFuel :: Int -> Int
+allFuel x
+  | fl > 0  = fl + allFuel fl
+  | otherwise = 0
+ where fl = fuel x
+
+fuel :: Int -> Int
 fuel x = (x `div` 3) - 2

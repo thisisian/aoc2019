@@ -29,7 +29,6 @@ parse s = case P.parse pOrbits "" s of
 pathFromRoot :: Tree String -> String -> Maybe [String]
 pathFromRoot t s = fmap reverse . findPath' [] $ t
   where
-   findPath' :: [String] -> Tree String -> Maybe [String]
    findPath' ps (Node n ns) =
      if s == n
      then Just ps
@@ -42,7 +41,6 @@ findPath t n1 n2 = do
   return $ diffLists p1 p2
 
  where
-  diffLists :: Eq a => [a] -> [a] -> [a]
   diffLists (x:xs) (y:ys) =
     if x == y then diffLists xs ys
     else reverse (x:xs) ++ (y:ys)
