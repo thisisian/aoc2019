@@ -1,14 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Day9 where
+module Day11 where
 
 import Control.Monad.Writer
-import Control.Monad.State
-import qualified Data.IntMap as M
+import Control.Monad.State.Strict
+import qualified Data.Map as M
 import Data.List
 import Data.Vector (Vector, (!), (//))
 import Data.Foldable
+import Data.Function
 import qualified Data.Vector as V
 
 import Common
@@ -29,49 +30,98 @@ data Op
   | Terminate
  deriving (Show)
 
-day9 :: IO ()
-day9 = do
-  program <- newMachine . map read . split ',' <$> readFile "./inputs/9.txt"
-  putStrLn $ "Pt 2: " ++ show (evalMachine program [2])
+day11 :: IO ()
+day11 = do
+  code <- map read . split ',' <$> readFile "./inputs/11.txt"
 
-phasesNoFeedback :: [[Int]]
-phasesNoFeedback = permutations [0,1,2,3,4]
+--  putStrLn $ "Pt 1: " ++ show (M.size $ runRobot code M.empty)
+  putStrLn $ "Pt 2: "
+  putStr $ showHull (runRobot code (M.singleton (0,0) 1))
 
-phasesFeedback :: [[Int]]
-phasesFeedback = permutations [5,6,7,8,9]
 
-maxAmpOutput :: [Int] -> [[Int]] -> Int
-maxAmpOutput prgm phases =
-  maximum $ map (head . evalAmps 0 . inputPhases (repeat initMachine)) phases
-  where
-    initMachine = newMachine prgm
+type Pt = (Int, Int)
 
-inputPhases :: [Machine] -> [Int] -> [Machine]
-inputPhases = zipWith (\m i -> execMachine m [i])
+data Dir = U | D | L | R
 
-evalAmps :: Int -> [Machine] -> [Int]
-evalAmps input ms =
-  evalState (runAmps [input]) (M.fromList $ zip [0..] ms)
+data Robot
+  = Rob
+  { rMach :: Machine, rRobLoc :: Pt, rRobDir :: Dir, rColored :: M.Map Pt Int }
 
-runAmps :: (MonadState (M.IntMap Machine) m) => [Int] -> m [Int]
-runAmps input = do
-  ms <- gets M.toList
-  ret <- foldlM f input ms
-  halted <- isHalt
-  if halted
-    then return ret
-    else runAmps ret
+newHull :: [Int] -> Robot
+newHull code = Rob { rMach = newMachine code, rRobLoc = (0,0), rRobDir = U, rColored = M.empty }
+
+runRobot code hull =
+  rColored $ execState loop ((newHull code){ rColored = hull })
  where
-  f inp (idx, m) = do
-    let (out, m') = runMachine m inp
-    modify (M.adjust (const m') idx)
-    return $ reverse out
+  loop :: (MonadState Robot m) => m ()
+  loop = do
+    rob@Rob{..} <- get
+    case mHalt rMach of
+      True -> return ()
+      False -> do
+        clr <- getColor
+        let ([paint, turn], m') = runMachine rMach [clr]
+        put rob { rColored = M.insert rRobLoc paint rColored, rMach = m' }
+        doTurn turn
+        moveForward
+        loop
 
-  isHalt = do
-    ms <- gets M.elems
-    return $ all mHalt ms
+   where
+    getColor = do
+      rob@Rob{..} <- get
+      case M.lookup rRobLoc rColored of
+        Nothing -> return 0
+        Just c  -> return c
 
-data Machine = Machine { mCode :: Vector Int, mPc :: Int, mHalt :: Bool, mRb :: Int }
+    doTurn turnIx =
+      modify (\rob@Rob{..} -> rob { rRobDir = turn turnIx rRobDir })
+     where
+      turn 0 U = L
+      turn 0 D = R
+      turn 0 L = D
+      turn 0 R = U
+      turn 1 U = R
+      turn 1 D = L
+      turn 1 L = U
+      turn 1 R = D
+
+    moveForward =
+      modify (\rob@Rob{..} -> rob { rRobLoc = forward rRobLoc rRobDir })
+     where
+      forward (x, y) U = (x, y-1)
+      forward (x, y) D = (x, y+1)
+      forward (x, y) L = (x-1, y)
+      forward (x, y) R = (x+1, y)
+
+showHull :: M.Map Pt Int -> String
+showHull hull = unlines . groupN width $ unfoldr f 0
+
+ where
+  f idx = res
+   where
+     res =
+      let (x, y) = (idx `mod` width, idx `div` width)
+      in
+        if idx == width*height
+        then Nothing
+        else if elem (x, y) toDraw
+             then (Just ('#', idx+1))
+             else (Just (' ', idx+1))
+
+
+  toDraw = ((map (\(x, y) -> (x-minX, (y-minY))) whiteOnly))
+  whiteOnly = M.keys . M.filter (== 1) $ hull
+  width = maxX - minX + 1
+  height = maxY - minY + 1
+  minX = fst . minimumBy (compare `on` fst) $ whiteOnly
+  minY = snd . minimumBy (compare `on` snd) $ whiteOnly
+  maxX = fst . maximumBy (compare `on` fst) $ whiteOnly
+  maxY = snd . maximumBy (compare `on` snd) $ whiteOnly
+
+
+data Machine
+  = Machine
+  { mCode :: Vector Int, mPc :: Int, mHalt :: Bool, mRb :: Int }
   deriving Show
 
 newMachine :: [Int] -> Machine
@@ -236,21 +286,7 @@ runTests = do
   assertEq (evalMachine eq8_2 [8]) [1]
   assertEq (evalMachine eq8_2 [1]) [0]
 
-  -- Amplifiers without feedback
-  assertEq (maxAmpOutput test1 phasesNoFeedback) 43210
-  assertEq (maxAmpOutput test2 phasesNoFeedback) 54321
 
-  -- Amplifiers with feedback
-  let
-    ps1 = [3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5]
-    ps2 = [3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10]
-
-  assertEq (maxAmpOutput ps1 [[9,8,7,6,5]]) 139629729
-  assertEq (maxAmpOutput ps2 [[9,7,8,5,6]]) 18216
-  --assertEq (maxAmpOutput ps1 phasesFeedback) 139629729
-  --assertEq (maxAmpOutput ps2 phasesFeedback) 18216
-
-  -- Relative position instuctions
   let
     rt1 = [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99]
     rt2 = [104,1125899906842624,99]

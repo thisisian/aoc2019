@@ -1,6 +1,7 @@
 module Day8 where
 
 import Data.List
+import Common
 import Control.Monad
 
 day8 = do
@@ -30,9 +31,3 @@ pt2 img' = foldl f (head img) img
 printImg :: [Int] -> IO ()
 printImg img = do
   forM_ (groupN 25 img) (\line -> do forM_ line (\c -> putStr $ show c); putStr "\n")
-
-
-
-groupN :: Int -> [a] -> [[a]]
-groupN _ [] = []
-groupN n a = take n a : groupN n (drop n a)
