@@ -1,0 +1,143 @@
+module Day14 where
+
+import Text.Parsec
+import Text.RawString.QQ
+import qualified Data.Map as M
+import Control.Monad.State.Strict
+import Debug.Trace
+
+type Material = String
+
+type Recipe =  (Material, (Int, [(Material, Int)]))
+
+day14 = do
+ print $ doThing . parseRecipes $ testInput1
+
+
+doThing :: [Recipe] -> Int
+doThing recipes = evalState loop (initNeedList, initHaveList)
+
+ where
+  recipeMap = M.fromList recipes
+  initNeedList = M.fromList [("FUEL", 1)]
+  initHaveList = M.empty
+
+  loop :: (MonadState (M.Map Material Int, M.Map Material Int) m) => m Int
+  loop = do
+    needList <- gets fst
+    traceShowM needList
+    haveList <- gets snd
+    traceShowM haveList
+    if (M.keys needList) == ["ORE"]
+      then
+        case M.lookup "ORE" needList of
+          Nothing -> undefined
+          Just amtNeeded -> return amtNeeded
+      else do
+        f (head . M.toList . M.delete "ORE" $ needList)
+        loop
+
+   where
+    f :: (MonadState (M.Map Material Int, M.Map Material Int) m) => (Material, Int) -> m ()
+    f (material, consume) =
+      if material == "ORE"
+        then
+          return()
+        else do
+          (needList, haveList) <- get
+          let
+            have :: Int
+            have = M.findWithDefault 0 material haveList
+          case M.lookup material recipeMap of
+            Nothing -> error $ material ++ " not in recipe book.\n"
+            Just (batchSize, ingredients) -> do
+              let toMake = consume - have
+                  batchesToMake = batches toMake batchSize
+                  ingredients' = map (\(m, i) -> (m, i*batchesToMake)) ingredients
+              let needList' :: M.Map Material Int
+                  needList' =
+                    M.unionWith (+) (M.fromList ingredients')
+                    . M.delete material $ needList
+                  haveList' :: M.Map Material Int
+                  remaining = batchesToMake*batchSize - toMake
+                  haveList' =
+                    M.alter (\v -> case remaining of
+                                0   -> Nothing
+                                rem -> case v of
+                                  Nothing -> Just $ remaining
+                                  Just x -> Just $ remaining) material
+                    $ haveList
+              put (needList', haveList')
+
+batches :: Int -> Int -> Int
+batches needed batchSize =
+  case needed `div` batchSize of
+    0 -> 1
+    n ->
+      if needed `mod` batchSize == 0
+      then n
+      else n+1
+
+parseRecipes s = case parse pRecipes "" s of
+  Left e   -> error $ show e
+  Right ps -> ps
+
+ where
+  pRecipes = (pRecipe `sepBy` newline) <* eof
+  pRecipe = do
+    ingredients <- pIngredients
+    string " => "
+    ct <- read <$> many1 digit
+    space
+    endResult <- many1 upper
+    return (endResult, (ct, ingredients))
+  pIngredients = pIngredient `sepBy` (string ", ")
+  pIngredient = do
+    ct <- read <$> many1 digit
+    space
+    mat <- many1 upper
+    return (mat, ct)
+
+
+
+testInput0 = [r|10 ORE => 10 A
+1 ORE => 1 B
+7 A, 1 B => 1 C
+7 A, 1 C => 1 D
+7 A, 1 D => 1 E
+7 A, 1 E => 1 FP
+14 A, 1 FP => 15 F
+7 A, 1 F => 1 G
+7 A, 1 G => 1 FUEL|]
+
+testInput1 = [r|9 ORE => 2 A
+8 ORE => 3 B
+7 ORE => 5 C
+3 A, 4 B => 1 AB
+5 B, 7 C => 1 BC
+4 C, 1 A => 1 CA
+2 AB, 3 BC, 4 CA => 1 FUEL|]
+
+testInput2 = [r|157 ORE => 5 NZVS
+165 ORE => 6 DCFZ
+44 XJWVT, 5 KHKGT, 1 QDVJ, 29 NZVS, 9 GPVTF, 48 HKGWZ => 1 FUEL
+12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ
+179 ORE => 7 PSHF
+177 ORE => 5 HKGWZ
+7 DCFZ, 7 PSHF => 2 XJWVT
+165 ORE => 2 GPVTF
+3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT|]
+
+
+testInput3 = [r|2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
+17 NVRVD, 3 JNWZP => 8 VPVL
+53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL
+22 VJHF, 37 MNCFX => 5 FWMGM
+139 ORE => 4 NVRVD
+144 ORE => 7 JNWZP
+5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC
+5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV
+145 ORE => 6 MNCFX
+1 NVRVD => 8 CXFTF
+1 VJHF, 6 MNCFX => 4 RFSQX
+176 ORE => 6 VJHF|]

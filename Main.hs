@@ -12,6 +12,9 @@ import Day9
 import Day10
 import Day11
 import Day12
+import Day13
+import Day14
+import IntMachine
 
 main :: IO ()
-main = return ()
+main = doTests

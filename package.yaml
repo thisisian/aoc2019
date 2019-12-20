@@ -5,6 +5,7 @@ dependencies:
 - vector
 - containers
 - mtl
+- raw-strings-qq
 - parsec
 
 default-extensions:
@@ -12,6 +13,7 @@ default-extensions:
 - RankNTypes
 - ParallelListComp
 - FlexibleContexts
+- QuasiQuotes
 
 ghc-options:
 - -threaded
