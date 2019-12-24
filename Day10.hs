@@ -7,7 +7,7 @@ import Control.Monad.Writer
 import Control.Monad.State
 import qualified Data.Set as S
 
-import Common
+import Common hiding (Pt)
 
 import Debug.Trace
 

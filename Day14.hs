@@ -5,69 +5,89 @@ import Text.RawString.QQ
 import qualified Data.Map as M
 import Control.Monad.State.Strict
 import Debug.Trace
+import Data.Maybe (fromJust)
 
 type Material = String
 
 type Recipe =  (Material, (Int, [(Material, Int)]))
 
 day14 = do
- print $ doThing . parseRecipes $ testInput1
+ print $ doThing . parseRecipes $ testInput2
 
+
+data ChemState
+  = CS
+  { csNeedList :: M.Map Material Int
+  , csHaveList :: M.Map Material Int
+  , csOre      :: Int }
 
 doThing :: [Recipe] -> Int
-doThing recipes = evalState loop (initNeedList, initHaveList)
+doThing recipes = evalState loop (CS initNeedList initHaveList 0)
 
  where
   recipeMap = M.fromList recipes
   initNeedList = M.fromList [("FUEL", 1)]
   initHaveList = M.empty
 
-  loop :: (MonadState (M.Map Material Int, M.Map Material Int) m) => m Int
+  loop :: (MonadState ChemState m) => m Int
   loop = do
-    needList <- gets fst
+    needList <- gets csNeedList
     traceShowM needList
-    haveList <- gets snd
+    haveList <- gets csHaveList
     traceShowM haveList
-    if (M.keys needList) == ["ORE"]
+    ore <- gets csOre
+    if null needList
       then
-        case M.lookup "ORE" needList of
-          Nothing -> undefined
-          Just amtNeeded -> return amtNeeded
+        return ore
       else do
-        f (head . M.toList . M.delete "ORE" $ needList)
+        f (head . M.toList $ needList)
         loop
 
    where
-    f :: (MonadState (M.Map Material Int, M.Map Material Int) m) => (Material, Int) -> m ()
-    f (material, consume) =
+    f :: (MonadState ChemState m) => (Material, Int) -> m ()
+    f (material, amtNeeded) = do
+      needList <- gets csNeedList
+      haveList <- gets csHaveList
       if material == "ORE"
         then
-          return()
-        else do
-          (needList, haveList) <- get
-          let
-            have :: Int
-            have = M.findWithDefault 0 material haveList
-          case M.lookup material recipeMap of
-            Nothing -> error $ material ++ " not in recipe book.\n"
-            Just (batchSize, ingredients) -> do
-              let toMake = consume - have
-                  batchesToMake = batches toMake batchSize
-                  ingredients' = map (\(m, i) -> (m, i*batchesToMake)) ingredients
-              let needList' :: M.Map Material Int
-                  needList' =
-                    M.unionWith (+) (M.fromList ingredients')
-                    . M.delete material $ needList
-                  haveList' :: M.Map Material Int
-                  remaining = batchesToMake*batchSize - toMake
-                  haveList' =
-                    M.alter (\v -> case remaining of
-                                0   -> Nothing
-                                rem -> case v of
-                                  Nothing -> Just $ remaining
-                                  Just x -> Just $ remaining) material
-                    $ haveList
-              put (needList', haveList')
+          modify
+            (\s@CS{..} -> s { csNeedList = M.delete material needList, csOre = csOre + amtNeeded})
+         else do
+           let (amtProduced, matsNeeded) = fromJust $ M.lookup material recipeMap
+           case M.lookup material haveList of
+             Nothing -> do
+               let numOfBatches = batches amtNeeded amtProduced
+               let matsToAdd = M.map (*numOfBatches) . M.fromList $ matsNeeded
+               let needList' = M.union matsToAdd . M.delete material $ needList
+               let haveList' =
+                     M.insert
+                       material (amtProduced * numOfBatches - amtNeeded) haveList
+               modify (\s -> s { csNeedList = needList', csHaveList = haveList'})
+
+             Just have ->
+               case compare have amtNeeded of
+                 EQ -> do
+                   let needList' = M.delete material needList
+                   let haveList' = M.delete material haveList
+                   modify
+                     (\s -> s { csNeedList = needList', csHaveList = haveList'})
+                 LT -> do
+                   let numOfBatches = batches (amtNeeded - have) amtProduced
+                   let matsToAdd = M.map (*numOfBatches) . M.fromList $ matsNeeded
+                   let needList' = M.union matsToAdd . M.delete material $ needList
+                   let haveList' =
+                         M.insert
+                           material (amtProduced * numOfBatches - (amtNeeded - have)) haveList
+                   modify (\s -> s { csNeedList = needList', csHaveList = haveList'})
+
+
+                 GT -> do
+                   let needList' = M.delete material needList
+                   let haveList' = M.adjust (amtNeeded -) material haveList
+                   modify
+                     (\s -> s { csNeedList = needList', csHaveList = haveList'})
+
+
 
 batches :: Int -> Int -> Int
 batches needed batchSize =

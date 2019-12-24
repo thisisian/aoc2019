@@ -38,9 +38,6 @@ day11 = do
   putStrLn $ "Pt 2: "
   putStr $ showHull (runRobot code (M.singleton (0,0) 1))
 
-
-type Pt = (Int, Int)
-
 data Dir = U | D | L | R
 
 data Robot

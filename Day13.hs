@@ -126,8 +126,6 @@ toTile 2 = Block
 toTile 3 = Paddle
 toTile 4 = Ball
 
-type Pt = (Int, Int)
-
 data Machine
   = Machine
   { mCode :: Vector Int, mPc :: Int, mHalt :: Bool, mRb :: Int }

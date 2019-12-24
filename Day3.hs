@@ -5,8 +5,6 @@ import Data.List
 
 import Common
 
-type Pt = (Int, Int)
-
 day3 = do
   ps <- parse <$> readFile "./inputs/3.txt"
   day3' ps
