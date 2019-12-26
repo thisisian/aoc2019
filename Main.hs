@@ -15,7 +15,8 @@ import Day12
 import Day13
 import Day14
 import Day15
+import Day17
 import IntMachine
 
 main :: IO ()
-main = doTests
+main = day17

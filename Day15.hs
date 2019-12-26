@@ -29,23 +29,8 @@ day15 = do
 data MapObject = Unknown | Wall | Floor | CurrentLoc | OxySys | Start
   deriving (Show, Eq)
 
-data CardDir = North | South | East | West
+data Droid = Droid { dMach :: Machine, dPos :: Pt, dMap :: M.Map Pt [MapObject], dPointing :: Dir }
 
-data Dir = Left | Right
-
-data DroidState = Blocked | Moved
-
-data Droid = Droid { dMach :: Machine, dState :: DroidState, dPos :: Pt, dMap :: M.Map Pt [MapObject], dPointing :: CardDir }
-
-leftOf North = West
-leftOf South = East
-leftOf West = South
-leftOf East = North
-
-rightOf North = East
-rightOf East = South
-rightOf South = West
-rightOf West = North
 
 instance ShowChar [MapObject] where
   displayChar [] = ' '
@@ -87,7 +72,6 @@ doDroid mach = do
   initDroid
     = Droid
     { dMach = mach
-    , dState = Blocked
     , dPos = (0,0)
     , dMap = (M.singleton (0,0) [CurrentLoc, Start])
     , dPointing = North }
@@ -110,7 +94,6 @@ doDroid mach = do
           pointing' = rightOf pointing
         modify (\s -> s
                   { dMach = mach'
-                  , dState  = Blocked
                   , dMap = mazeMap'
                   , dPointing = pointing' })
         loop
@@ -123,7 +106,6 @@ doDroid mach = do
           let mazeMap' = M.insert pos' [CurrentLoc, Floor] . M.adjust tail pos $ mazeMap
           modify (\s -> s
                     { dMach = mach'
-                    , dState = Moved
                     , dPos = pos'
                     , dPointing = leftOf pointing
                     , dMap = mazeMap' })
@@ -133,7 +115,6 @@ doDroid mach = do
         let mazeMap' = M.insert pos' [CurrentLoc, OxySys] . M.adjust tail pos $ mazeMap :: M.Map Pt [MapObject]
         modify (\s -> s
                  { dMach = mach'
-                 , dState = Moved
                  , dPos = pos'
                  , dMap = mazeMap' })
         loop

@@ -8,6 +8,24 @@ import Data.Graph
 
 type Pt = (Int, Int)
 
+neighbors :: Pt -> [Pt]
+neighbors (x, y) = [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+
+data Dir = North | South | East | West
+
+leftOf :: Dir -> Dir
+leftOf North = West
+leftOf South = East
+leftOf West = South
+leftOf East = North
+
+rightOf :: Dir -> Dir
+rightOf North = East
+rightOf East = South
+rightOf South = West
+rightOf West = North
+
+
 split :: Char -> String -> [String]
 split c s = case dropWhile (== c) s of
   ""  -> []

@@ -12,7 +12,7 @@ import Data.Foldable
 import Data.Function
 import qualified Data.Vector as V
 
-import Common
+import Common hiding (Dir)
 
 data Mode = Position | Immediate | Relative
   deriving (Show, Eq)
