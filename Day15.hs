@@ -15,7 +15,7 @@ import Data.Maybe
 
 day15 :: IO ()
 day15 = do
-  m <- newMachineFromFile "./inputs/15.txt"
+  m <- machineFromFile "./inputs/15.txt"
   mazeMap <- doDroid m
   let oxygenPt = fst . fromJust . find (\x -> snd x == OxySys) . M.toList $ mazeMap
   print $ oxygenPt

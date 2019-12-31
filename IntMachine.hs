@@ -41,8 +41,8 @@ data Machine
   { mCode :: V.Vector Int, mPc :: Int, mRb :: Int }
   deriving Show
 
-newMachineFromFile :: String -> IO (Machine)
-newMachineFromFile f = newMachine . map read . split ',' <$> readFile f
+machineFromFile :: String -> IO (Machine)
+machineFromFile f = newMachine . map read . split ',' <$> readFile f
 
 newMachine :: [Int] -> Machine
 newMachine s = Machine (V.fromList s V.++ V.replicate 9000 0) 0 0
